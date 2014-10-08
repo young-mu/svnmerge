@@ -8,7 +8,7 @@ steps :
 3)  pull trunk and branch to ~/Merge
 4)* ./dryrun.sh (generate dryrun.log)
 5)* ./conflict.sh (generate conflict diff files)
-6) 	mkdir diffs; mv src* ./diffs
+6)  mkdir diffs; mv src* ./diffs
 
 Just use hdiff/hblame : 
 1) source conflict.sh (expose hdiff)
