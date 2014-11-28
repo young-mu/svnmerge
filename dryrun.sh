@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Usage :
-# 1. replace the shell parameters like tkUrl and brUrl below
+# 1. replace the shell parameters curPath, tkPath and brPath below
 # 2. put dryrun.sh in the same directory as branch and trunk
 # 3. execute "source ./dryrun.sh" to export all the functions
 # 4. execute "./dryrun.sh" to get dryrun.log (whole) and svn logs in logs/
 # 5. execute "merge <revBefore> <revAfter>" to get dryrun.log (part) in logs/
-# 6. execute "merge <revBefore> <revAfter> exe" to start merge from branch to trunk 
-# 7. solve file or tree conflicts by taking advantage of functions below 
+# 6. execute "merge <revBefore> <revAfter> exe" to start merge from branch to trunk
+# 7. solve file or tree conflicts by taking advantage of functions below
 # 8. test if needed and commit
 
 curPath="/home/young/Merge"
@@ -16,16 +16,31 @@ brPath="${curPath}/branch"
 tkqLog="${curPath}/logs/trunk_q.log"
 brqLog="${curPath}/logs/branch_q.log"
 dryrunLog="${curPath}/logs/dryrun.log"
-tkUrl="http://localhost/svn/trunk"
-brUrl="https://localhost/svn/branch"
+
+# get trunk and branch URL
+if [[ ! -d ${tkPath} ]]; then
+    echo "${tkPath} does not exist!"
+else
+    cd ${tkPath}
+    tkUrl=`svn info | grep URL: | awk '{print $2}'`
+    cd ${curPath}
+fi
+
+if [[ ! -d ${brPath} ]]; then
+    echo "${brPath} does not exist!"
+else
+    cd ${brPath}
+    brUrl=`svn info | grep URL: | awk '{print $2}'`
+    cd ${curPath}
+fi
 
 # svn update of trunk and branch
-function tbUpdate() 
+function tbUpdate()
 {
-    echo "enter" ${tkPath} 
+    echo "enter" ${tkPath}
     cd ${tkPath}
     svn up
-    echo "enter" ${brPath} 
+    echo "enter" ${brPath}
     cd ${brPath}
     svn up
     cd ${curPath}
@@ -53,7 +68,7 @@ function rmFiles()
 }
 
 # get branch #rev in which the designate content's line was removed (bisearch)
-function getRevRemoved() 
+function getRevRemoved()
 {
     if [[ $# -ne 2 ]]; then
         echo "Usage : getRevRemoved <file> <line content>"
@@ -68,7 +83,7 @@ function getRevRemoved()
         while [[ ${left} -le ${right} ]]; do
             tmp=`expr ${left} + ${right}` &&  mid=`expr ${tmp} / 2 `
             if [[ `svn blame ${file} -r ${mid} | grep ${content}` ]]; then
-                left=`expr ${mid} + 1`  
+                left=`expr ${mid} + 1`
             else
                 right=`expr ${mid} - 1`
             fi
@@ -94,13 +109,13 @@ function getLogs()
     fi
     brRev=$(getRevCopied)
     cd ${tkPath}
-    echo "enter" ${tkPath} 
+    echo "enter" ${tkPath}
     svn log -r HEAD:${brRev} > ${curPath}/logs/trunk.log
     svn log -q -r HEAD:${brRev} > ${curPath}/logs/trunk_q.log
     svn log -v -r HEAD:${brRev} > ${curPath}/logs/trunk_v.log
     echo "trunk.log / trunk_q.log / trunk_v.log are generated in logs/ successfully"
     cd ${brPath}
-    echo "enter" ${brPath} 
+    echo "enter" ${brPath}
     svn log -r HEAD:${brRev} > ${curPath}/logs/branch.log
     svn log -q -r HEAD:${brRev} > ${curPath}/logs/branch_q.log
     svn log -v -r HEAD:${brRev} > ${curPath}/logs/branch_v.log
@@ -142,7 +157,7 @@ function brLog()
     fi
 }
 
-# diff two trunk files (one is designated, the other is previous rev) 
+# diff two trunk files (one is designated, the other is previous rev)
 function tDiff()
 {
     if [[ $# -ne 2 ]]; then
@@ -184,13 +199,13 @@ function brRevDiff()
     else
         curRev=${1}
         prevRev=`cat ${brqLog} | grep ${curRev} -A2 | tail -1 | awk '{print $1}' | sed 's/r//'`
-        svn diff ${brUrl} -r ${curRev}:${prevRev} | egrep -v "svn:mergeinfo|Property changes|Reverse-merged|_____|^$"  
+        svn diff ${brUrl} -r ${curRev}:${prevRev} | egrep -v "svn:mergeinfo|Property changes|Reverse-merged|_____|^$"
     fi
 }
 
 
 # diff two URL files (trunk & branch) and save the diff file
-function tbDiff() 
+function tbDiff()
 {
     if [[ ! -d ${curPath}/diffs ]]; then
         mkdir ${curPath}/diffs
@@ -220,7 +235,7 @@ function tbBlame()
         blameFile=${1}
         tkFile=${tkUrl}/${blameFile}
         brFile=${brUrl}/${blameFile}
-        # replace '/' with '_' in the file name and add prefix 'b-tk' or 'b-br' 
+        # replace '/' with '_' in the file name and add prefix 'b-tk' or 'b-br'
         tkLocalFile="b-tk-${1//\//_}"
         brLocalFile="b-br-${1//\//_}"
         svn blame ${tkFile} > ${curPath}/blames/${tkLocalFile}
@@ -244,7 +259,7 @@ function merge()
         if [[ $# -eq 3 ]] && [[ ${3} == 'exe' ]]; then
             cd ${tkPath}
             svn merge -r ${revOld}:${revNew} ${brUrl} .
-        else    
+        else
             cd ${tkPath}
             mergeFile="m${revOld}_${revNew}"
             svn merge -r ${revOld}:${revNew} ${brUrl} . --dry-run > ${curPath}/logs/${mergeFile}
@@ -270,11 +285,11 @@ if [[ $0 == "./dryrun.sh" ]]; then
     # get conflict files from dryrun.log
     cd ${curPath}
     cRawFiles=`sed -n '/^C/p' ${dryrunLog}`
-    cFiles=`echo "${cRawFiles}" | awk '{print $2}'` 
-    # diff conflict file and then save diff file 
+    cFiles=`echo "${cRawFiles}" | awk '{print $2}'`
+    # diff conflict file and then save diff file
     i=0
     for cFile in ${cFiles}; do
-        let i++ 
+        let i++
         tbDiff ${cFile}
     done
     echo -e "\n${i} files"
